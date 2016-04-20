@@ -1,0 +1,74 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+    theme: spacelab
+---
+
+Upload to figshare
+==================
+
+The following code uploads BigWig files, the phenotype table, the counts table, and the __RangedSummarizedExperiment__ to [figshare](http://fishare.com)
+
+
+First, lets find the files we want to upload.
+
+```{r 'files'}
+library('derfinder')
+library('derfinderData')
+
+## Find bigwig files
+files <- rawFiles(system.file('extdata', 'AMY', package = 'derfinderData'), samplepatt = 'bw', fileterm = NULL)
+
+## Complete file list
+files <- c(files, 'counts' = 'counts.tsv', 'pheno' = 'pheno.tsv', 'rse' = 'rse.Rdata')
+```
+
+Now that we have the list of files, we can upload them to [figshare](http://figshare.com) using [rfigshare](https://github.com/ropensci/rfigshare).
+
+```{r 'upload'}
+library('rfigshare')
+
+## Authenticate if needed
+# fs_auth()
+
+## Create new entry in figshare
+art_id <- fs_create(
+    title = 'rfigshare upload test',
+    description = 'Upload files to figshare using rfigshare as described at https://github.com/lcolladotor/rfigshare_test',
+    type = 'fileset'
+)
+save(art_id, file = 'art_id.Rdata')
+
+## Add category
+fs_add_categories(art_id, 'Computational Biology')
+
+## Add Jeff Leek as an author
+# z <- fs_author_search('Jeffrey Leek')
+# z[[1]]$id ## It's 206141
+# fs_add_authors(art_id, 206141)
+# fs_add_authors(art_id, "Jeffrey T. Leek")
+## Currently bugged, adds someone else...
+
+## Upload files
+system.time( upload_info <- fs_upload(art_id, files) )
+save(upload_info, file = 'upload_info.Rdata')
+
+## Make public
+fs_make_public(art_id)
+```
+
+
+
+# Reproducibility
+
+```{r 'reproducibility'}
+## Reproducibility info
+proc.time()
+message(Sys.time())
+options(width = 120)
+devtools::session_info()
+```
+

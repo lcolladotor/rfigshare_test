@@ -1,0 +1,78 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+    theme: spacelab
+---
+
+Create RSE and pheno table
+==========================
+
+
+This code taken from the [derfinder quick start vignette](http://www.bioconductor.org/packages/devel/bioc/vignettes/derfinder/inst/doc/derfinder-quickstart.html) gets the region matrix from a set of BigWig files included in [derfinderData](http://www.bioconductor.org/packages/derfinderData)
+
+
+```{r 'setup'}
+## Create a RangedSummarizedExperiment from bigwig files
+library('derfinder')
+library('derfinderData')
+library('GenomicRanges')
+library('SummarizedExperiment')
+
+## Determine the files to use and fix the names
+files <- rawFiles(system.file('extdata', 'AMY', package = 'derfinderData'), samplepatt = 'bw', fileterm = NULL)
+names(files) <- gsub('.bw', '', names(files))
+
+## Load the data from disk -- On Windows you have to load data from Bam files
+fullCov <- fullCoverage(files = files, chrs = 'chr21', verbose = FALSE)
+
+## Get the region matrix of Expressed Regions (ERs)
+regionMat <- regionMatrix(fullCov, cutoff = 30, L = 76, verbose = FALSE)
+
+## Get pheno table
+pheno <- subset(brainspanPheno, structure_acronym == 'AMY')
+colnames(pheno) <- tolower(colnames(pheno))
+pheno$sample <- names(files)
+```
+
+# Data to upload
+
+The following code creates a count table, a __RangedSummarizedExperiment__ object, and a phenotype table to upload to [figshare](http://figshare.com).
+
+```{r 'export'}
+## Round matrix
+counts <- round(regionMat$chr21$coverageMatrix)
+
+## Create RangedSummarizedExperiment
+rse <- SummarizedExperiment(assays = list('counts' = counts), colData = DataFrame(pheno), rowRanges = regionMat$chr21$regions)
+
+## Export data
+write.table(counts, file = 'counts.tsv', quote = FALSE, sep = '\t', row.names = FALSE)
+write.table(pheno, file = 'pheno.tsv', quote = FALSE, sep = '\t', row.names = FALSE)
+save(rse, file = 'rse.Rdata')
+```
+
+
+# Converting to DESeqDataSet
+
+The following code converts the __RangedSummarizedExperiment__ into a __DESeqDataSet__ if that is what you are interested in using. You can then use [DEFormats](http://www.bioconductor.org/packages/DEFormats) if you need to.
+
+```{r 'deseq2'}
+library('DESeq2')
+dse <- DESeqDataSet(rse, design = ~gender + age)
+dse
+```
+
+
+# Reproducibility
+
+```{r 'reproducibility'}
+## Reproducibility info
+proc.time()
+message(Sys.time())
+options(width = 120)
+devtools::session_info()
+```
+

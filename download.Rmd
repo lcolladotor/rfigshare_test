@@ -1,0 +1,140 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+    theme: spacelab
+---
+
+Download from figshare
+==================
+
+The following code downloads files from a fileset in [figshare](http://figshare.com) using [rfigshare](https://github.com/ropensci/rfigshare).
+
+
+First we get the information from Figshare.
+
+```{r 'getinfo'}
+library('rfigshare')
+
+## Authenticate if needed
+# fs_auth()
+
+## Find article
+load('art_id.Rdata')
+
+## Find article info
+details <- fs_details(art_id, mine = FALSE)
+
+## Get download URLs
+down_info <- fs_download(art_id)
+
+info <- data.frame(url = down_info[, 1], 
+    name = sapply(details$files, '[[', 'name'), stringsAsFactors = FALSE)
+info
+```
+
+Next we can download the __RangedSummarizedExperiment__ data.
+
+```{r 'downloadRSE'}
+## Download rse file
+dir.create('downloaded', showWarnings = FALSE)
+download.file(info$url[info$name == 'rse.Rdata'],
+    destfile = file.path('downloaded', 'rse.Rdata'))
+
+## Load it
+library('SummarizedExperiment')
+load(file.path('downloaded', 'rse.Rdata'))
+rse
+```
+
+We can also re-create the __RangedSummarizedExperiment__ using [derfinder](http://www.bioconductor.org/packages/derfinder).
+
+```{r 'remakeRSE'}
+## Identify bigwig files
+files <- info$url[grep('bw', info$name)]
+names(files) <- gsub('.bw', '', info$name[grep('bw', info$name)])
+
+## Download files
+dir.create('bigwigs', showWarnings = FALSE)
+for(i in seq_len(length(files))) download.file(files[i],
+    destfile = file.path('bigwigs', paste0(names(files)[i], '.bw')))
+
+
+## Locate local files
+library('derfinder')
+bw_files <- rawFiles('bigwigs', samplepatt = 'bw', fileterm = NULL)
+names(bw_files) <- gsub('.bw', '', names(bw_files))
+
+## Re-order names in the same way that were used originally
+bw_files <- bw_files[match(colData(rse)$sample, names(bw_files))]
+
+## Load the data from disk 
+fullCov <- fullCoverage(files = bw_files, chrs = 'chr21', verbose = FALSE)
+
+## Get the region matrix of Expressed Regions (ERs)
+regionMat <- regionMatrix(fullCov, cutoff = 30, L = 76, verbose = FALSE)
+
+## Download the pheno data
+download.file(info$url[info$name == 'pheno.tsv'],
+    destfile = file.path('downloaded', 'pheno.tsv'))
+
+## Load pheno data
+pheno_new <- read.table(file.path('downloaded', 'pheno.tsv'), header = TRUE,
+    sep = '\t', colClasses = c('factor', 'factor', 'numeric', 'character',
+    'character', 'character', 'factor', 'character'))
+
+## Make it so it matches the original pheno table
+pheno_new$group <- relevel(pheno_new$group, 'fetal')
+colData(rse)$lab <- droplevels(colData(rse)$lab)
+
+## Round matrix
+counts <- round(regionMat$chr21$coverageMatrix)
+
+## Re-create RangedSummarizedExperiment
+rse_new <- SummarizedExperiment(assays = list('counts' = counts),
+    colData = DataFrame(pheno_new), rowRanges = regionMat$chr21$regions)
+
+## Apparently they are not identical
+identical(rse, rse_new)
+
+## But they are when looking closer
+all(c(
+    identical(assays(rse)$counts, assays(rse_new)$counts),
+    identical(colData(rse), colData(rse_new)),
+    identical(rowData(rse), rowData(rse_new)),
+    identical(colnames(rse), colnames(rse_new)),
+    identical(rownames(rse), rownames(rse_new))
+))
+
+```
+
+
+# Reproducibility
+
+
+```{r 'cite'}
+library('knitcitations')
+bib <- c('data' = read.bibtex('3187663.bib'), 
+    'rfigshare' = citation('rfigshare'))
+```
+
+
+The data for this example is available via figshare `r citep(bib[['data']])` and was downloaded using `rfigshare` `r citep(bib[['rfigshare']])`.
+
+
+
+```{r 'bibliography', results = 'asis'}
+bibliography()
+```
+
+
+```{r 'reproducibility'}
+## Reproducibility info
+proc.time()
+message(Sys.time())
+options(width = 120)
+devtools::session_info()
+```
+

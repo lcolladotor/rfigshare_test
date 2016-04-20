@@ -1,0 +1,44 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    theme: spacelab
+---
+
+Upload and download from Figshare
+==================
+
+```{r 'cite'}
+library('knitcitations')
+bib <- c('data' = read.bibtex('3187663.bib'), 
+    'rfigshare' = citation('rfigshare'),
+    'derfinder' = citation('derfinder')[1])
+```
+
+This is a proof of concept on how to upload BigWig files, __RangedSummarizedExperiment__ objects, count matrices and phenotype data to [figshare](http://figshare.com) using `rfigshare` `r citep(bib[['rfigshare']])`. Then download the data and reproduce the uploaded __RangedSummarizedExperiment__ that has information at the expressed regions-level as created with `derfinder` `r citep(bib[['derfinder']])`. The resulting data that was uploaded for this test is available via figshare `r citep(bib[['data']])`.
+
+
+# Files
+
+The first file is [create_data](create_data.html) [[source file](create_data.Rmd)] which has the code for creating the phenotype table, the count matrix and the __RangedSummarizedExperiment__ to be uploaded.
+
+Once the files have been created, [upload](upload.html) [[source file](upload.Rmd)] uploads them to [figshare](http://figshare.com) using `rfigshare`. It uploads them as a _fileset_ which means that the files will be grouped. At the end, it publishes the files so they'll be publicly available.
+
+Finally, [download](download.html) [[source file](download.Rmd)] downloads the files and shows how to reproduce the __RangedSummarizedExperiment__ object.
+
+# Reproducibility
+
+```{r 'bibliography', results = 'asis'}
+bibliography()
+```
+
+
+```{r 'reproducibility'}
+## Reproducibility info
+proc.time()
+message(Sys.time())
+options(width = 120)
+devtools::session_info()
+```
